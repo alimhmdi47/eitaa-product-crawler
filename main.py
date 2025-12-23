@@ -38,7 +38,7 @@ def start_engine():
 
         # ذخیره نتایج اولیه جستجو
         results_map = {f"@{u}": raw_blocks[i:i+1] for i, u in enumerate(usernames)}
-        with open("results.json", "w", encoding="utf-8") as f:
+        with open("./doc/results.json", "w", encoding="utf-8") as f:
             json.dump(results_map, f, ensure_ascii=False, indent=4)
 
         info_db = {}
@@ -61,9 +61,9 @@ def start_engine():
             time.sleep(1.2) # وقفه برای امنیت
 
         # ذخیره فایل‌های نهایی
-        with open("channel_info.json", "w", encoding="utf-8") as f:
+        with open("./doc/channel_info.json", "w", encoding="utf-8") as f:
             json.dump(info_db, f, ensure_ascii=False, indent=4)
-        with open("analysis.json", "w", encoding="utf-8") as f:
+        with open("./doc/analysis.json", "w", encoding="utf-8") as f:
             json.dump(analysis_db, f, ensure_ascii=False, indent=4)
 
         print("\n[DONE] Data collection and analysis complete.")
