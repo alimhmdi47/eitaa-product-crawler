@@ -9,6 +9,7 @@ from groq import Groq
 
 # وارد کردن توابع از فایل‌های جانبی
 from scraper import build_eitaa_payload, get_channel_details
+from analyzer import analyze_with_groq
 
 # لود کردن تنظیمات .env
 load_dotenv()
@@ -52,13 +53,18 @@ def start_engine():
             if data:
                 info_db[f"@{user}"] = {"bio": data["bio"], "posts": data["posts"]}
                 
-
+                # ۲. تحلیل توسط هوش مصنوعی (Analyzer)
+                analysis_res = analyze_with_groq(client, user, data["bio"], data["posts"])
+                analysis_db[f"@{user}"] = analysis_res
+                print(f"    AI Result: {analysis_res}")
             
             time.sleep(1.2) # وقفه برای امنیت
 
         # ذخیره فایل‌های نهایی
         with open("channel_info.json", "w", encoding="utf-8") as f:
             json.dump(info_db, f, ensure_ascii=False, indent=4)
+        with open("analysis.json", "w", encoding="utf-8") as f:
+            json.dump(analysis_db, f, ensure_ascii=False, indent=4)
 
         print("\n[DONE] Data collection and analysis complete.")
 
