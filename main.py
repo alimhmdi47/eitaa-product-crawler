@@ -34,10 +34,14 @@ def start_engine():
         
         # استخراج یوزرنیم‌ها و بلاک‌های متنی
         usernames = list(dict.fromkeys(re.findall(r'@([A-Za-z0-9_]{3,})', raw_stream)))
-        raw_blocks = [b.strip() for b in re.split(r'[\x00-\x1F\x7F-\x9F]', raw_stream) if len(b.strip()) > 25]
 
         # ذخیره نتایج اولیه جستجو
-        results_map = {f"@{u}": raw_blocks[i:i+1] for i, u in enumerate(usernames)}
+        results_map = {}
+        for user in usernames:
+            data = get_channel_details(user)
+            if data:
+                results_map[f"@{user}"] = data["posts"][-1:] if data["posts"] else []
+
         with open("./doc/results.json", "w", encoding="utf-8") as f:
             json.dump(results_map, f, ensure_ascii=False, indent=4)
 
