@@ -12,13 +12,14 @@ from groq import Groq
 from cache_service import CacheService
 from scraper import build_eitaa_payload, extract_clean_usernames, get_channel_details
 from analyzer import analyze_with_groq, generate_advanced_keywords
+from session import SessionManager
 from worker import start_worker
 
 # لود کردن تنظیمات .env
 load_dotenv()
 
-def run_crawler(search_query, client, token, uid):
-
+def run_crawler(search_query, client, cache, token, uid):
+    
     # search_query = input("Enter keyword (e.g. لاک پاک کن): ")
     payload = build_eitaa_payload(token, search_query)
     headers = {"User-Agent": "Mozilla/5.0", "Origin": "https://web.eitaa.com"}
@@ -84,11 +85,12 @@ def run_crawler(search_query, client, token, uid):
 if __name__ == "__main__":
     # لود کردن تنظیمات .env
     load_dotenv()
-    token = os.getenv("EITAA_TOKEN")
-    uid = os.getenv("EITAA_USER_ID")
+    tokens = os.getenv("EITAA_TOKENS")
+    uids = os.getenv("EITAA_USER_IDS")
     ai_key = os.getenv("GROQ_API_KEY")
     proxy = os.getenv("SOCKS_PROXY")
     
+    session_mgr = SessionManager(tokens, uids)
     client = Groq(api_key=ai_key, http_client=httpx.Client(proxy=proxy))
     cache = CacheService()
 
@@ -100,10 +102,11 @@ if __name__ == "__main__":
             print(f"[search_keywords] : \n {search_keywords}")
             for word in search_keywords:
                 
-                run_crawler(word, client, token, uid) 
+                token, uid = session_mgr.get_next_session()
+                run_crawler(word, client, cache, token, uid) 
                 
                 print(f"[*] Cooling down for 10 seconds...")
-                time.sleep(1)
+                time.sleep(5)
 
     except KeyboardInterrupt:
         print("\n[!] User stopped the process.")
