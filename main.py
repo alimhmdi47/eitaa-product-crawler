@@ -11,23 +11,15 @@ from groq import Groq
 # وارد کردن توابع از فایل‌های جانبی
 from cache_service import CacheService
 from scraper import build_eitaa_payload, extract_clean_usernames, get_channel_details
-from analyzer import analyze_with_groq
+from analyzer import analyze_with_groq, generate_advanced_keywords
 from worker import start_worker
 
 # لود کردن تنظیمات .env
 load_dotenv()
 
-def run_crawler():
-    token = os.getenv("EITAA_TOKEN")
-    uid = os.getenv("EITAA_USER_ID")
-    ai_key = os.getenv("GROQ_API_KEY")
-    proxy = os.getenv("SOCKS_PROXY")
-    
-    # راه‌اندازی کلاینت AI با تنظیمات پروکسی
-    client = Groq(api_key=ai_key, http_client=httpx.Client(proxy=proxy))
-    cache = CacheService()
-    
-    search_query = input("Enter keyword (e.g. لاک پاک کن): ")
+def run_crawler(search_query, client, token, uid):
+
+    # search_query = input("Enter keyword (e.g. لاک پاک کن): ")
     payload = build_eitaa_payload(token, search_query)
     headers = {"User-Agent": "Mozilla/5.0", "Origin": "https://web.eitaa.com"}
     
@@ -90,13 +82,33 @@ def run_crawler():
         print(f"Pipeline Error: {e}")
 
 if __name__ == "__main__":
+    # لود کردن تنظیمات .env
+    load_dotenv()
+    token = os.getenv("EITAA_TOKEN")
+    uid = os.getenv("EITAA_USER_ID")
+    ai_key = os.getenv("GROQ_API_KEY")
+    proxy = os.getenv("SOCKS_PROXY")
+    
+    client = Groq(api_key=ai_key, http_client=httpx.Client(proxy=proxy))
+    cache = CacheService()
+
     worker_process = multiprocessing.Process(target=start_worker, name="Mongo-Worker")
     worker_process.start()
+    try:
+            print("[] AI is generating strategic keywords...")
+            search_keywords = generate_advanced_keywords(client) 
+            print(f"[search_keywords] : \n {search_keywords}")
+            for word in search_keywords:
+                
+                run_crawler(word, client, token, uid) 
+                
+                print(f"[*] Cooling down for 10 seconds...")
+                time.sleep(1)
 
-    run_crawler()
-
-    print("[!] Crawler is done. Waiting for worker to finish pending jobs...")
-    time.sleep(5)
-
-    worker_process.terminate() 
-    print("[✔] Entire Pipeline stopped.")
+    except KeyboardInterrupt:
+        print("\n[!] User stopped the process.")
+    finally:
+        print("\n[!] Crawler is done. Waiting for worker to finish pending jobs...")
+        time.sleep(5)
+        worker_process.terminate() 
+        print("[✔] Entire Pipeline stopped.")
