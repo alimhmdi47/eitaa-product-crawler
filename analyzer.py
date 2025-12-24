@@ -4,7 +4,7 @@ def analyze_with_groq(client, username, bio, posts):
     clean_posts = " | ".join([str(p)[:200] for p in posts[:5]]).replace('{', '').replace('}', '')
     
     # دستور به زبان فارسی برای دریافت تحلیل فارسی
-    prompt = f"Is @{username} a shop? Bio: {clean_bio}. Posts: {clean_posts}. Answer YES/NO + a short Persian reason."
+    prompt = f"Is @{username} a shop? Bio: {clean_bio}. Posts: {clean_posts}. Answer with YES/NO? + a short Persian reason. "
     
     try:
         completion = client.chat.completions.create(

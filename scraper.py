@@ -19,8 +19,39 @@ def get_channel_details(username):
         res = requests.get(url, timeout=10)
         bio_match = re.search(r'<div class="etme_channel_info_description".*?>(.*?)</div>', res.text, re.DOTALL)
         bio = bio_match.group(1).strip() if bio_match else "بدون بیوگرافی"
-        messages = re.findall(r'<div class="etme_widget_message_text.*?>(.*?)</div>', res.text, re.DOTALL)
-        posts = [re.sub(r'<.*?>', '', m).strip() for m in messages]
+        post_blocks = re.findall(r'<div class="etme_widget_message_wrap.*?>(.*?)<div class="etme_widget_message_footer', res.text, re.DOTALL)
+        posts = []
+        for block in post_blocks:
+            text_match = re.search(r'<div class="etme_widget_message_text.*?>(.*?)</div>', block, re.DOTALL)
+            text = re.sub(r'<.*?>', '', text_match.group(1)).strip() if text_match else ""
+            image_match = re.search(r'background-image:url\(\'(.*?)\'\)', block)
+            image_url = image_match.group(1) if image_match else None
+            if text or image_url:
+                posts.append({"text": text, "image": image_url})
         return {"bio": bio, "posts": posts[-10:]}
-    except:
+    except Exception as e:
+        print(f"Scraper Error: {e}")
         return None
+    
+import re
+
+def extract_clean_usernames(raw_stream):
+    usernames_with_at = re.findall(r'@([A-Za-z0-9_]{3,})', raw_stream)
+
+    contact_pairs = re.findall(r'([\u0600-\u06FF\s]{3,30}).*?([A-Za-z0-9_]{5,32})', raw_stream)
+    
+    blacklist = {'EITAA_TOKEN', 'SOCKS_PROXY', 'MhmdiVli', 'video', 'html', 'https', 'UTF8', 'None'}
+    
+    final_map = {}
+
+    for u in usernames_with_at:
+        if u not in blacklist and not u.isdigit():
+            final_map[u] = {"channel_name": "نامشخص"}
+
+    for name, user in contact_pairs:
+        u = user.strip()
+        n = name.strip()
+        if u not in blacklist and not u.isdigit() and len(n) > 2:
+            final_map[u] = {"channel_name": n}
+
+    return final_map
