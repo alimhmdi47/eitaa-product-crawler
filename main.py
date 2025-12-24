@@ -32,7 +32,7 @@ def run_crawler(search_query, client, cache, token, uid, acc_proxy):
     try:
         response = requests.post("https://hosna.eitaa.com/eitaa/", data=payload, headers=headers, params={"id": uid}, proxies=proxies)
         print(f"status: {response.status_code}")
-        if response.status_code == 429 or len(response.content) < 100:
+        if response.status_code == 429:
             return "LIMITED"
         
         raw_stream = response.content.decode('utf-8', errors='ignore')
