@@ -17,15 +17,16 @@ Database Worker: ورکر نهایی که داده‌های پارس شده را
 # 📂 ساختار پروژه
 ```plaintext
 .
-├── main.py              # موتور اصلی جستجو و مدیریت پروسس‌ها
-├── processor.py         # ورکر استخراج محصولات (AI Detail Extractor)
-├── worker.py            # ورکر ذخیره‌سازی داده در MongoDB
-├── analyzer.py          # هسته تعامل با Groq API و مدیریت کلاینت AI
-├── scraper.py           # هندلر پروتکل ایتا و استخراج داده‌های خام
-├── cache_service.py     # سرویس مرکزی مدیریت Redis و صف‌ها
-├── session_service.py   # مدیریت چرخش حساب‌ها (Session Rotation)
-├── docker-compose.yaml  # زیرساخت Redis و MongoDB
-└── doc/                 # گزارشات لحظه‌ای و فایل‌های لاگ JSON
+├── src/
+│   ├── main.py              # نقطه ورود و مدیریت کل پایپ‌لاین 
+│   ├── scraper.py           # هندلر پروتکل ایتا و استخراج داده‌های خام 
+│   ├── analyzer.py          # هسته تعامل با Groq API (تشخیص ماهیت کانال)
+│   ├── processor.py         # استخراج ویژگی‌های محصول از متن (AI Detail Extractor) 
+│   ├── worker.py            # مصرف‌کننده نهایی و ذخیره‌سازی در MongoDB 
+│   ├── cache_service.py     # مدیریت صف‌های Redis (Channels/Products)
+│   └── session_service.py   # مدیریت چرخش حساب‌ها و دور زدن Rate Limit 
+├── docker-compose.yaml      # راه‌اندازی زیرساخت Redis و MongoDB 
+└── README.md                # راهنما و مستندات فنی پروژه 
 ```
 
 # ⚙️ پیش‌نیازها
@@ -90,7 +91,7 @@ pip install -r requirements.txt
 کافیست فایل اصلی را اجرا کنید. این فایل به صورت خودکار Worker را در یک پروسس جداگانه بالا آورده و سپس از شما Keyword جستجو را می‌پرسد:
 
 ```
-python main.py
+python src/main.py
 ```
 
 # 🔍 نحوه کارکرد بخش‌ها
@@ -149,15 +150,6 @@ Temperature: مقدار 0.1 تنظیم شده تا پاسخ‌ها کاملاً 
 
 Temperature: مقدار 0 تنظیم شده تا استخراج داده‌ها با بالاترین دقت و کمترین خطا انجام شود.
 
-
-# 📝 گزارش‌گیری
-خروجی‌ها علاوه بر دیتابیس، در فولدر doc نیز ذخیره می‌شوند:
-
-channel_info.json: جزییات استخراج شده (Bio/Posts).
-
-analysis.json: تحلیل‌های متنی هوش مصنوعی.
-
-raw_response.txt: پاسخ خام شبکه جهت عیب‌یابی.
 
 # ⚠️ نکات مهم
 Proxy: به دلیل تحریم‌های API، حتماً از صحت کانکشن SOCKS_PROXY برای بخش Groq اطمینان حاصل کنید.

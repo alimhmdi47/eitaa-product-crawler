@@ -39,9 +39,6 @@ def run_crawler(search_query, cache, token, uid, imei, acc_proxy):
         
         raw_stream = response.content.decode('utf-8', errors='ignore')
 
-        with open("./doc/raw_response.txt", "w", encoding="utf-8") as f:
-            f.write(raw_stream)
-        
         # استخراج یوزرنیم‌ها و بلاک‌های متنی
         final_usernames_map = extract_clean_usernames(raw_stream)
         usernames = list(final_usernames_map.keys())
@@ -86,12 +83,6 @@ def run_crawler(search_query, cache, token, uid, imei, acc_proxy):
             except Exception as user_err:
                 print(f" [!] Error processing user @{user}: {user_err}")
                 continue
-
-        # ذخیره فایل‌های نهایی
-        with open("./doc/channel_info.json", "w", encoding="utf-8") as f:
-            json.dump(info_db, f, ensure_ascii=False, indent=4)
-        with open("./doc/analysis.json", "w", encoding="utf-8") as f:
-            json.dump(analysis_db, f, ensure_ascii=False, indent=4)
 
         print("\n[DONE] Data collection and analysis complete.")
         return "SUCCESS"
