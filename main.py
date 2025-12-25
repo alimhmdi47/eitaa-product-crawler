@@ -18,13 +18,13 @@ from worker import start_worker
 # لود کردن تنظیمات .env
 load_dotenv()
 
-def run_crawler(search_query, cache, token, uid, acc_proxy):
+def run_crawler(search_query, cache, token, uid, imei, acc_proxy):
     
     # search_query = input("Enter keyword (e.g. لاک پاک کن): ")
     # search_query = "لاک پاک کن"
     print(f"[*] search query: {search_query}")
 
-    payload = build_eitaa_payload(token, search_query)
+    payload = build_eitaa_payload(token, search_query, imei)
     headers = {"User-Agent": "Mozilla/5.0", "Origin": "https://web.eitaa.com"}
     proxies = None
     if acc_proxy:
@@ -106,8 +106,9 @@ if __name__ == "__main__":
     tokens = os.getenv("EITAA_TOKENS")
     uids = os.getenv("EITAA_USER_IDS")
     eitaa_proxies = os.getenv("EITAA_PROXIES")
+    imeis = os.getenv("IMEIS")
     
-    session_mgr = SessionManager(tokens, uids, eitaa_proxies)
+    session_mgr = SessionManager(tokens, uids, imeis, eitaa_proxies)
     cache = CacheService()
 
     worker_process = multiprocessing.Process(target=start_worker, name="Mongo-Worker")
@@ -125,15 +126,15 @@ if __name__ == "__main__":
             while word_idx < len(search_keywords):
                 word = search_keywords[word_idx]
                 
-                token, uid, acc_proxy = session_mgr.get_random_session()
+                token, uid, imei, acc_proxy = session_mgr.get_random_session()
                 if token is None:
                     print("[!!!] All accounts are in cooldown. Sleeping for 60s...")
                     time.sleep(60)
                     continue
 
-                print(f"token: {token}, uid: {uid}, proxy: {acc_proxy}")
+                print(f"token: {token}, uid: {uid}, imei: {imei}, proxy: {acc_proxy}")
 
-                status = run_crawler(word, cache, token, uid, acc_proxy) 
+                status = run_crawler(word, cache, token, uid, imei, acc_proxy) 
 
                 if status == "LIMITED":
                     session_mgr.penalize(token, duration=600)

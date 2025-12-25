@@ -1,9 +1,10 @@
 import requests
 import re
 
-def build_eitaa_payload(token, query):
+def build_eitaa_payload(token, query, imei):
     # ساخت دیتای باینری برای پروتکل اختصاصی ایتا
-    header = b"\xed\x77\xbe\x7a\x1f" + token.encode() + b"\x14mggbh3ndmw1mj7d__web\x00\x00\x00\x2c\x10\xac\x6c\x2a\x00\x00\x04\x00"
+    print(imei)
+    header = b"\xed\x77\xbe\x7a\x1f" + token.encode() + b"\x14" + imei.encode() + b"\x00\x00\x00\x2c\x10\xac\x6c\x2a\x00\x00\x04\x00"
     content = query.encode("utf-8")
     length = len(content)
     size_header = bytes([length]) if length <= 253 else b"\xfe" + length.to_bytes(3, 'little')

@@ -46,6 +46,7 @@ uv (پیشنهادی برای مدیریت پکیج‌ها)
 EITAA_TOKEN=your_token_here,your_token_here2
 EITAA_USER_ID=your_id_here,your_id_here2
 EITAA_PROXIES=proxy1,proxy2
+IMEI=
 
 # AI Config
 GROQ_API_KEY=gsk_your_key

@@ -2,10 +2,11 @@ import random
 import time
 
 class SessionManager:
-    def __init__(self, tokens_str, uids_str, proxies_str=None):
+    def __init__(self, tokens_str, uids_str, imeis_str, proxies_str=None):
         # اکانت‌ها (جفت‌های ثابت)
         tokens = [t.strip() for t in tokens_str.split(",") if t.strip()]
         uids = [u.strip() for u in uids_str.split(",") if u.strip()]
+        imeis = [i.strip() for i in imeis_str.split(",") if i.strip()]
         # سبد پروکسی‌ها (مستقل از اکانت‌ها)
         self.proxy_pool = [p.strip() for p in proxies_str.split(",") if p.strip()] if proxies_str else []     
 
@@ -14,6 +15,7 @@ class SessionManager:
             self.accounts.append({
                 "token": token,
                 "uid": uids[i] if i < len(uids) else uids[0],
+                "imei": imeis[i] if i < len(imeis) else imeis[0],
                 "next_available_time": 0
             })
 
@@ -32,7 +34,7 @@ class SessionManager:
         # ۲. انتخاب یک پروکسی کاملاً تصادفی از سبد (مستقل از اینکه کی هستی)
         chosen_proxy = random.choice(self.proxy_pool) if self.proxy_pool else None
         
-        return chosen_acc["token"], chosen_acc["uid"], chosen_proxy
+        return chosen_acc["token"], chosen_acc["uid"], chosen_acc["imei"], chosen_proxy
 
     def penalize(self, token, duration=600):
         for acc in self.accounts:
