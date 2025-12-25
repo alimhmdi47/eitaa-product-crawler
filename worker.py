@@ -1,43 +1,58 @@
-import redis
 import json
 import os
 import time
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
+from cache_service import CacheService
+
 load_dotenv()
 
 def start_worker():
-    # اتصال به Redis
-    r = redis.Redis(host=os.getenv("REDIS_HOST"), port=os.getenv("REDIS_PORT"), db=0)
-    queue_name = os.getenv("REDIS_QUEUE")
+    cache = CacheService()
+    queue_name = cache.product_queue
 
-    # اتصال به MongoDB
-    mongo_client = MongoClient(os.getenv("MONGO_URI"))
-    db = mongo_client[os.getenv("MONGO_DB_NAME")]
-    collection = db[os.getenv("MONGO_COLLECTION")]
+    try:
+        mongo_client = MongoClient(os.getenv("MONGO_URI"))
+        db = mongo_client[os.getenv("MONGO_DB_NAME")]
+        collection = db[os.getenv("MONGO_COLLECTION")]
+        # تست اتصال
+        mongo_client.admin.command('ping')
+    except Exception as e:
+        print(f"[!] MongoDB Connection Error: {e}")
+        return
 
     print(f"[*] Worker started. Listening to queue: {queue_name}...")
 
     while True:
+        message = None
         try:
-            # BLPOP باعث می‌شود اسکریپت منتظر بماند تا دیتای جدید وارد صف شود
-            _, message = r.blpop(queue_name)
+            # برداشتن دیتا از صف نهایی محصولات
+            result = cache.redis_client.blpop(queue_name)
+            if not result:
+                continue
             
-            if message:
-                product_data = json.loads(message)
-                
-                # اینجا می‌توانید پردازش‌های اضافی (مثل Bonus Features) را انجام دهید
-                product_data["processed_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
-                product_data["status"] = "verified"
+            _, message = result
+            product_data = json.loads(message)
+            
+            # افزودن متادیتا
+            product_data["processed_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+            product_data["status"] = "verified"
 
-                # ذخیره نهایی در MongoDB
-                result = collection.insert_one(product_data)
-                
-                print(f"[Worker] Success! Product from @{product_data['username']} saved to Mongo. ID: {result.inserted_id}")
+            #  ذخیره نهایی در MongoDB
+            result = collection.insert_one(product_data)
+            
+            print(f"[Worker] Success! Product from @{product_data['username']} saved. ID: {result.inserted_id}")
         
         except Exception as e:
             print(f"[Worker Error]: {e}")
+            
+            # استراتژی محافظت از داده:
+            # اگر دیتا برداشته شده بود ولی در مونگو ذخیره نشد، آن را به صف برمی‌گردانیم
+            if message:
+                print("[!] Re-queuing failed message...")
+                cache.redis_client.lpush(queue_name, message)
+            
             time.sleep(5)
 
 if __name__ == "__main__":

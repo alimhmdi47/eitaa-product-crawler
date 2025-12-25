@@ -4,25 +4,25 @@ import json
 import random
 import time
 import requests
-import re
-import httpx
 from dotenv import load_dotenv
-from groq import Groq
 
 # وارد کردن توابع از فایل‌های جانبی
 from cache_service import CacheService
+from processor import start_processor
 from scraper import build_eitaa_payload, extract_clean_usernames, get_channel_details
-from analyzer import analyze_with_groq, extract_bulk_products, generate_advanced_keywords
+from analyzer import analyze_with_ai, generate_advanced_keywords, client
 from session_service import SessionManager
 from worker import start_worker
+
 
 # لود کردن تنظیمات .env
 load_dotenv()
 
-def run_crawler(search_query, client, cache, token, uid, acc_proxy):
+def run_crawler(search_query, cache, token, uid, acc_proxy):
     
     # search_query = input("Enter keyword (e.g. لاک پاک کن): ")
     # search_query = "لاک پاک کن"
+    print(f"[*] search query: {search_query}")
 
     payload = build_eitaa_payload(token, search_query)
     headers = {"User-Agent": "Mozilla/5.0", "Origin": "https://web.eitaa.com"}
@@ -55,48 +55,37 @@ def run_crawler(search_query, client, cache, token, uid, acc_proxy):
         for user in usernames:
             print(f" -> Processing @{user}...")
             
-            data = get_channel_details(user) 
-            if data:
-                # پر کردن دیتای results (مربوط به بخش اول قبلی)
-                results_map[f"@{user}"] = data["posts"][-1:] if data["posts"] else []
-                
-                # پر کردن دیتای info
-                info_db[f"@{user}"] = {"bio": data["bio"], "posts": data["posts"]}
-                
-                # ۲. تحلیل توسط هوش مصنوعی (Analyzer)
-                analysis_res = analyze_with_groq(client, user, data["bio"], data["posts"])
-                analysis_db[f"@{user}"] = analysis_res
-                
-                # ارسال به صف Redis (اگر فروشگاه بود)
-                if any(word in analysis_res.upper() for word in ["YES", "بله"]):
-                    all_posts = data.get("posts", [])
-                    if not all_posts:
-                        print(f" [!] @{user} has no posts to extract.")
-                        continue
+            try:
+                data = get_channel_details(user) 
+                if data:
+                    # پر کردن دیتای results (مربوط به بخش اول قبلی)
+                    results_map[f"@{user}"] = data["posts"][-1:] if data["posts"] else []
+                    
+                    # پر کردن دیتای info
+                    info_db[f"@{user}"] = {"bio": data["bio"], "posts": data["posts"]}
+                    
+                    # ۲. تحلیل توسط هوش مصنوعی (Analyzer)
+                    analysis_res = analyze_with_ai(client, user, final_usernames_map[user]["channel_name"], data["bio"], data["posts"])
+                    analysis_db[f"@{user}"] = analysis_res
+                    
+                    # ارسال به صف Redis (اگر فروشگاه بود)
+                    if any(word in analysis_res.upper() for word in ["YES", "بله"]):
 
-                    print("before extract bulk products")
-                    bulk_data = extract_bulk_products(client, data["posts"])
-                    print("after")
-
-                    if bulk_data and "products" in bulk_data:
-                        for item in bulk_data["products"]:
-                            # پیدا کردن متن اصلی پست بر اساس ID (برای داشتن کپشن خام در دیتابیس)
-                            post_idx = item.get("post_id")
-                            raw_text = data["posts"][post_idx] if post_idx is not None else ""
-                            if post_idx is not None and isinstance(post_idx, int) and 0 <= post_idx < len(all_posts):
-                                raw_text = all_posts[post_idx]
-                                
-                            product_job = {
-                                "username": user,
-                                "channel_name": final_usernames_map[user]["channel_name"],
-                                "details": item, # شامل سایز، رنگ، قیمت و ...
-                                "raw_caption": raw_text,
-                                "timestamp": time.time()
-                            }
-                            cache.push_to_queue(product_job)
-                            print(f"   - Product extracted: {item.get('product_name')}")
-            
-            time.sleep(1.5) 
+                        channel_payload = {
+                            "username": user,
+                            "channel_name": final_usernames_map[user]["channel_name"],
+                            "bio": data["bio"],
+                            "posts": data["posts"], # ارسال همه پست‌ها برای استخراج محصول در مرحله بعد
+                            "timestamp": time.time()
+                        }
+        
+                        # استفاده از سرویس کش برای ارسال به صف پردازش
+                        cache.push_to_channels_queue(channel_payload)
+                
+                time.sleep(1.5) 
+            except Exception as user_err:
+                print(f" [!] Error processing user @{user}: {user_err}")
+                continue
 
         # ذخیره فایل‌های نهایی
         with open("./doc/channel_info.json", "w", encoding="utf-8") as f:
@@ -117,15 +106,16 @@ if __name__ == "__main__":
     tokens = os.getenv("EITAA_TOKENS")
     uids = os.getenv("EITAA_USER_IDS")
     eitaa_proxies = os.getenv("EITAA_PROXIES")
-    ai_key = os.getenv("GROQ_API_KEY")
-    proxy = os.getenv("SOCKS_PROXY")
     
     session_mgr = SessionManager(tokens, uids, eitaa_proxies)
-    client = Groq(api_key=ai_key, http_client=httpx.Client(proxy=proxy))
     cache = CacheService()
 
     worker_process = multiprocessing.Process(target=start_worker, name="Mongo-Worker")
     worker_process.start()
+
+    processor_process = multiprocessing.Process(target=start_processor, name="AI-Processor")
+    processor_process.start()
+
     try:
             print("[] AI is generating strategic keywords...")
             search_keywords = generate_advanced_keywords(client) 
@@ -143,7 +133,7 @@ if __name__ == "__main__":
 
                 print(f"token: {token}, uid: {uid}, proxy: {acc_proxy}")
 
-                status = run_crawler(word, client, cache, token, uid, acc_proxy) 
+                status = run_crawler(word, cache, token, uid, acc_proxy) 
 
                 if status == "LIMITED":
                     session_mgr.penalize(token, duration=600)
@@ -161,4 +151,5 @@ if __name__ == "__main__":
         print("\n[!] Crawler is done. Waiting for worker to finish pending jobs...")
         time.sleep(5)
         worker_process.terminate() 
+        processor_process.terminate()
         print("[✔] Entire Pipeline stopped.")

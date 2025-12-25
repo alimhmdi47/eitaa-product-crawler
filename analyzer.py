@@ -1,7 +1,19 @@
 import json
+import os
 
+from dotenv import load_dotenv
+from groq import Groq
+import httpx
 
-def analyze_with_groq(client, username, bio, posts):
+load_dotenv()
+
+ai_key = os.getenv("GROQ_API_KEY")
+proxy = os.getenv("SOCKS_PROXY")
+
+client = Groq(api_key=ai_key, http_client=httpx.Client(proxy=proxy))
+model = "llama-3.3-70b-versatile"
+
+def analyze_with_ai(client, username, channel_name, bio, posts):
     # آماده‌سازی داده‌ها برای تحلیل توسط هوش مصنوعی
     clean_bio = str(bio)[:300].replace('{', '').replace('}', '')
     clean_posts = " | ".join([str(p)[:200] for p in posts[:5]]).replace('{', '').replace('}', '')
@@ -10,6 +22,7 @@ def analyze_with_groq(client, username, bio, posts):
     prompt = prompt = f"""
     Act as a Professional Data Validator. Analyze the following Eitaa channel data:
     Username: @{username}
+    Channel name: {channel_name}
     Bio: {clean_bio}
     Last Posts: {clean_posts}
     
@@ -19,7 +32,7 @@ def analyze_with_groq(client, username, bio, posts):
     
     try:
         completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.1,
             max_tokens=100
@@ -61,7 +74,7 @@ def generate_advanced_keywords(client):
                 {"role": "system", "content": "You are a professional market analyst. You provide raw Persian keyword lists without 'و'."},
                 {"role": "user", "content": prompt}
             ],
-            model="llama-3.3-70b-versatile",
+            model=model,
             temperature=0.8
         )
         
@@ -123,7 +136,7 @@ def extract_bulk_products(client, posts):
     
     try:
         completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0,
             response_format={"type": "json_object"}
