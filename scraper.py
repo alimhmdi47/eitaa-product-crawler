@@ -40,7 +40,7 @@ def extract_clean_usernames(raw_stream):
 
     contact_pairs = re.findall(r'([\u0600-\u06FF\s]{3,30}).*?([A-Za-z0-9_]{5,32})', raw_stream)
     
-    blacklist = {'EITAA_TOKEN', 'SOCKS_PROXY', 'MhmdiVli', 'video', 'html', 'https', 'UTF8', 'None'}
+    blacklist = {'EITAA_TOKEN', 'SOCKS_PROXY', 'video', 'html', 'https', 'UTF8', 'None'}
     
     final_map = {}
 
