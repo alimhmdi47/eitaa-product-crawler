@@ -12,7 +12,7 @@ from groq import Groq
 # وارد کردن توابع از فایل‌های جانبی
 from cache_service import CacheService
 from scraper import build_eitaa_payload, extract_clean_usernames, get_channel_details
-from analyzer import analyze_with_groq, generate_advanced_keywords
+from analyzer import analyze_with_groq, extract_bulk_products, generate_advanced_keywords
 from session_service import SessionManager
 from worker import start_worker
 
@@ -22,6 +22,8 @@ load_dotenv()
 def run_crawler(search_query, client, cache, token, uid, acc_proxy):
     
     # search_query = input("Enter keyword (e.g. لاک پاک کن): ")
+    # search_query = "لاک پاک کن"
+
     payload = build_eitaa_payload(token, search_query)
     headers = {"User-Agent": "Mozilla/5.0", "Origin": "https://web.eitaa.com"}
     proxies = None
@@ -67,15 +69,32 @@ def run_crawler(search_query, client, cache, token, uid, acc_proxy):
                 
                 # ارسال به صف Redis (اگر فروشگاه بود)
                 if any(word in analysis_res.upper() for word in ["YES", "بله"]):
-                    product_job = {
-                        "username": user,
-                        "channel_name": str(final_usernames_map[user]["channel_name"]), 
-                        "bio": str(data["bio"]),
-                        "analysis": str(analysis_res),
-                        "timestamp": time.time(),
-                        "posts": data["posts"]
-                    }
-                    cache.push_to_queue(product_job)
+                    all_posts = data.get("posts", [])
+                    if not all_posts:
+                        print(f" [!] @{user} has no posts to extract.")
+                        continue
+
+                    print("before extract bulk products")
+                    bulk_data = extract_bulk_products(client, data["posts"])
+                    print("after")
+
+                    if bulk_data and "products" in bulk_data:
+                        for item in bulk_data["products"]:
+                            # پیدا کردن متن اصلی پست بر اساس ID (برای داشتن کپشن خام در دیتابیس)
+                            post_idx = item.get("post_id")
+                            raw_text = data["posts"][post_idx] if post_idx is not None else ""
+                            if post_idx is not None and isinstance(post_idx, int) and 0 <= post_idx < len(all_posts):
+                                raw_text = all_posts[post_idx]
+                                
+                            product_job = {
+                                "username": user,
+                                "channel_name": final_usernames_map[user]["channel_name"],
+                                "details": item, # شامل سایز، رنگ، قیمت و ...
+                                "raw_caption": raw_text,
+                                "timestamp": time.time()
+                            }
+                            cache.push_to_queue(product_job)
+                            print(f"   - Product extracted: {item.get('product_name')}")
             
             time.sleep(1.5) 
 

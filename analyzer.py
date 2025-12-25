@@ -1,3 +1,6 @@
+import json
+
+
 def analyze_with_groq(client, username, bio, posts):
     # آماده‌سازی داده‌ها برای تحلیل توسط هوش مصنوعی
     clean_bio = str(bio)[:300].replace('{', '').replace('}', '')
@@ -78,3 +81,54 @@ def generate_advanced_keywords(client):
         print(f"AI Keyword Error: {e}")
         # لیست بک‌آپ استاندارد (بدون حرف "و")
         return ["مانتو مجلسی", "آرایشی عمده", "لوازم آشپزخانه", "گالری بدلیجات", "قاب گوشی"]
+    
+def extract_bulk_products(client, posts):
+    """
+    تحلیل دسته‌ای پست‌ها برای کاهش مصرف توکن و تعداد درخواست
+    """
+    # شماره‌گذاری پست‌ها برای تفکیک دقیق توسط هوش مصنوعی
+    if not posts: 
+        return {"products": []}
+    formatted_posts = ""
+    for idx, post in enumerate(posts):
+        safe_post = str(post or "")[:500] 
+        formatted_posts += f"Post ID {idx}: {safe_post}\n---\n"
+
+    prompt = f"""
+    Act as a precise Data Extraction tool. Analyze these Eitaa posts and extract product details.
+    
+    POSTS TO ANALYZE:
+    {formatted_posts}
+
+    OUTPUT FORMAT (Strict JSON):
+    Return a JSON object with a key "products" containing a list of objects:
+    {{
+      "products": [
+        {{
+          "post_id": index_number,
+          "product_name": "نام محصول",
+          "sizes": ["سایز1", "سایز2"],
+          "colors": ["رنگ1", "رنگ2"],
+          "materials": ["جنس"],
+          "price": 1200000
+        }}
+      ]
+    }}
+
+    RULES:
+    - If a post is NOT about a specific product, skip it.
+    - If data is missing, use [] or null.
+    - No prose, ONLY JSON.
+    """
+    
+    try:
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+            response_format={"type": "json_object"}
+        )
+        return json.loads(completion.choices[0].message.content)
+    except Exception as e:
+        print(f"Bulk Extraction Error: {e}")
+        return {"products": []}
