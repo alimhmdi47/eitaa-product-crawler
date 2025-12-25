@@ -38,26 +38,39 @@ Groq API Key (برای پردازش هوش مصنوعی)
 
 uv (پیشنهادی برای مدیریت پکیج‌ها)
 
+# ⚠️ نکات بسیار مهم. قبل از هر اقدام!!!!
+این پروژه بدون تنظیم دقیق مقادیر زیر در فایل .env اجرا نخواهد شد. لطفاً این مراحل را با دقت انجام دهید:
+
+استخراج هویت ایتا: * وارد نسخه وب ایتا شوید.
+
+کلید F12 را زده و در تب Application (بخش Storage)، مقادیر token ، user_id و imei را کپی کرده و در فایل .env ست کنید. بدون این‌ها، پروتکل باینری ایتا شما را شناسایی نمی‌کند.
+
+تنظیمات هوش مصنوعی (Groq):
+
+یک API Key از Groq Console دریافت کنید.
+
+نکته حیاتی: به دلیل تحریم‌های API، حتماً مقدار SOCKS_PROXY را در فایل .env با یک پروکسی معتبر پر کنید، در غیر این صورت بخش تحلیل هوشمند غیرفعال خواهد بود.
+
 # 🚀 راهنمای راه‌اندازی و اجرا
 ۱. تنظیمات محیطی (Environment Variables)
 ابتدا فایل .env.example را به .env تغییر نام دهید و مقادیر را بر اساس نیاز خود پر کنید:
 
 ``` 
 # Eitaa Config
-EITAA_TOKEN=your_token_here,your_token_here2
-EITAA_USER_ID=your_id_here,your_id_here2
-EITAA_PROXIES=proxy1,proxy2
-IMEI=imei1,imei2
+EITAA_TOKEN=your_token_here,your_token_here2 #(Required)
+EITAA_USER_ID=your_id_here,your_id_here2 #(Required)
+EITAA_PROXIES=proxy1,proxy2 #(Optional)
+IMEI=imei1,imei2 #(Required)
 
 # AI Config
-GROQ_API_KEY=gsk_your_key
-SOCKS_PROXY=socks5://127.0.0.1:1080  # الزامی برای دسترسی به Groq
+GROQ_API_KEY=gsk_your_key #(Required)
+SOCKS_PROXY=socks5://127.0.0.1:1080 #(Required)
 
 # Redis
 REDIS_HOST=localhost
 REDIS_PORT=6379
-REDIS_QUEUE=eitaa_products_queue          # صف نهایی برای مونگو
-REDIS_CHANNELS_QUEUE=eitaa_channels_queue   # صف میانی برای پردازش AI
+REDIS_QUEUE=eitaa_products_queue         # Persistence queue for MongoDB
+REDIS_CHANNELS_QUEUE=eitaa_channels_queue   # AI Processing Pipeline Queue
 
 # MongoDB
 MONGO_URI=mongodb://admin:password123@localhost:27017/
@@ -151,5 +164,3 @@ Temperature: مقدار 0.1 تنظیم شده تا پاسخ‌ها کاملاً 
 Temperature: مقدار 0 تنظیم شده تا استخراج داده‌ها با بالاترین دقت و کمترین خطا انجام شود.
 
 
-# ⚠️ نکات مهم
-Proxy: به دلیل تحریم‌های API، حتماً از صحت کانکشن SOCKS_PROXY برای بخش Groq اطمینان حاصل کنید.
