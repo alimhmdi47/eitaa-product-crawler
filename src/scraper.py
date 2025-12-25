@@ -33,26 +33,38 @@ def get_channel_details(username):
     except Exception as e:
         print(f"Scraper Error: {e}")
         return None
-    
-import re
 
 def extract_clean_usernames(raw_stream):
-    usernames_with_at = re.findall(r'@([A-Za-z0-9_]{3,})', raw_stream)
-
-    contact_pairs = re.findall(r'([\u0600-\u06FF\s]{3,30}).*?([A-Za-z0-9_]{5,32})', raw_stream)
-    
-    blacklist = {'EITAA_TOKEN', 'SOCKS_PROXY', 'video', 'html', 'https', 'UTF8', 'None'}
-    
     final_map = {}
+    
+    blacklist = {
+        'eitaa', 'video', 'html', 'https', 'utf8', 'none', 'joinchat', 
+        'search', 'mp4', 'jfif', 'lavc', 'android', 'index', 'view'
+    }
 
-    for u in usernames_with_at:
-        if u not in blacklist and not u.isdigit():
-            final_map[u] = {"channel_name": "نامشخص"}
+    patterns = [
+        r'@([A-Za-z0-9_]{5,32})',                             # @username
+        r'eitaa\.com/([A-Za-z0-9_]{5,32})',                   # eitaa.com/username
+        r'url=https://eitaa\.com/([A-Za-z0-9_]{5,32})'        # search links
+    ]
+    
+    for pattern in patterns:
+        found = re.findall(pattern, raw_stream)
+        for u in found:
+            u_low = u.lower()
+            if u_low not in blacklist and not u.isdigit() and len(u) >= 5:
+                if u not in final_map:
+                    final_map[u] = {"channel_name": "استخراج شده از متن"}
 
-    for name, user in contact_pairs:
+    binary_contacts = re.findall(r'([\u0600-\u06FF\s]{3,40})[\x00-\x20]+([A-Za-z][A-Za-z0-9_]{4,31})', raw_stream)
+    
+    for name, user in binary_contacts:
         u = user.strip()
         n = name.strip()
-        if u not in blacklist and not u.isdigit() and len(n) > 2:
-            final_map[u] = {"channel_name": n}
+        u_low = u.lower()
+        
+        if u_low not in blacklist and not u.isdigit():
+            if len(n) > 2:
+                final_map[u] = {"channel_name": n}
 
     return final_map

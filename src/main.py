@@ -21,7 +21,7 @@ load_dotenv()
 def run_crawler(search_query, cache, token, uid, imei, acc_proxy):
     
     # search_query = input("Enter keyword (e.g. لاک پاک کن): ")
-    # search_query = "لاک پاک کن"
+    search_query = "لاک پاک کن"
     print(f"[*] search query: {search_query}")
 
     payload = build_eitaa_payload(token, search_query, imei)
