@@ -2,27 +2,30 @@
 این پروژه یک پایپ‌لاین هوشمند برای جستجو، استخراج و تحلیل داده‌های پیام‌رسان ایتا (Eitaa) است. سیستم با استفاده از پروتکل اختصاصی ایتا جستجو را انجام داده، کانال‌های مرتبط را پیدا می‌کند و با استفاده از هوش مصنوعی (Groq/Llama3) تشخیص می‌دهد که آیا کانال مورد نظر فروشگاه است یا خیر. در نهایت داده‌های تایید شده در دیتابیس MongoDB ذخیره می‌شوند.
 
 # 🛠 معماری سیستم
-این سیستم از چهار بخش اصلی تشکیل شده است:
+این سیستم از پنج بخش اصلی تشکیل شده است که به صورت موازی (Asynchronous logic) با هم در ارتباط هستند:
 
-Main Engine: بخش جستجو و کراولر اولیه که یوزرنیم‌ها را استخراج می‌کند.
+Main Finder Engine: وظیفه جستجوی کلمات کلیدی استراتژیک و یافتن یوزرنیم‌های جدید را دارد.
 
-AI Analyzer: تحلیل محتوای Bio و پست‌ها توسط مدل Llama-3 برای تشخیص ماهیت تجاری.
+AI Shop Detector: در مرحله اول، محتوای کانال را بررسی کرده و در صورت تایید "فروشگاه بودن"، آن را به صف پردازش می‌فرستد.
 
-Redis Queue: مدیریت صف پیام‌ها جهت پایداری سیستم (Buffer).
+AI Product Processor: (جدید) به عنوان مغز متفکر میانی، پست‌ها را تحلیل کرده و جزئیات محصول (نام، قیمت، سایز و...) را استخراج می‌کند. این بخش دارای مدیریت هوشمند Rate Limit برای Groq است.
 
-Worker: پردازشگر پس‌زمینه که داده‌های نهایی را با احراز هویت در MongoDB ذخیره می‌کند.
+Redis Buffer: مدیریت دو صف مجزا (CHANNELS_QUEUE و PRODUCTS_QUEUE) برای تضمین عدم گم شدن داده‌ها.
+
+Database Worker: ورکر نهایی که داده‌های پارس شده را در MongoDB ذخیره می‌کند.
 
 # 📂 ساختار پروژه
 ```plaintext
 .
-├── main.py              # نقطه ورود اصلی و مدیریت فرآیندهای همزمان (Multiprocessing)
-├── worker.py            # پردازشگر صف Redis و ذخیره‌ساز MongoDB
-├── analyzer.py          # ماژول تحلیل هوش مصنوعی (Groq API)
-├── scraper.py           # توابع استخراج داده و ارتباط با پروتکل باینری ایتا
-├── cache_service.py     # سرویس مدیریت ارتباط با Redis
-├── docker-compose.yaml  # راه‌اندازی Redis, MongoDB و محیط‌های UI
-├── pyproject.toml       # مدیریت مدرن وابستگی‌ها با uv
-└── doc/                 # محل ذخیره گزارش‌های متنی و خروجی‌های 
+├── main.py              # موتور اصلی جستجو و مدیریت پروسس‌ها
+├── processor.py         # ورکر استخراج محصولات (AI Detail Extractor)
+├── worker.py            # ورکر ذخیره‌سازی داده در MongoDB
+├── analyzer.py          # هسته تعامل با Groq API و مدیریت کلاینت AI
+├── scraper.py           # هندلر پروتکل ایتا و استخراج داده‌های خام
+├── cache_service.py     # سرویس مرکزی مدیریت Redis و صف‌ها
+├── session_service.py   # مدیریت چرخش حساب‌ها (Session Rotation)
+├── docker-compose.yaml  # زیرساخت Redis و MongoDB
+└── doc/                 # گزارشات لحظه‌ای و فایل‌های لاگ JSON
 ```
 
 # ⚙️ پیش‌نیازها
@@ -40,8 +43,9 @@ uv (پیشنهادی برای مدیریت پکیج‌ها)
 
 ``` 
 # Eitaa Config
-EITAA_TOKEN=your_token_here
-EITAA_USER_ID=your_id_here
+EITAA_TOKEN=your_token_here,your_token_here2
+EITAA_USER_ID=your_id_here,your_id_here2
+EITAA_PROXIES=proxy1,proxy2
 
 # AI Config
 GROQ_API_KEY=gsk_your_key
@@ -50,7 +54,8 @@ SOCKS_PROXY=socks5://127.0.0.1:1080  # الزامی برای دسترسی به G
 # Redis
 REDIS_HOST=localhost
 REDIS_PORT=6379
-REDIS_QUEUE=eitaa_products_queue
+REDIS_QUEUE=eitaa_products_queue          # صف نهایی برای مونگو
+REDIS_CHANNELS_QUEUE=eitaa_channels_queue   # صف میانی برای پردازش AI
 
 # MongoDB
 MONGO_URI=mongodb://admin:password123@localhost:27017/
@@ -88,11 +93,15 @@ python main.py
 ```
 
 # 🔍 نحوه کارکرد بخش‌ها
-Scraper: از طریق تابع build_eitaa_payload درخواست‌های باینری به سرورهای ایتا ارسال کرده و یوزرنیم‌های یافت شده را استخراج می‌کند.
+Scraper: ارسال درخواست‌های باینری به ایتا، استخراج یوزرنیم‌های خام و جمع‌آوری Bio/Posts.
 
-Analyzer: محتوای کانال را به مدل llama-3.3-70b-versatile می‌فرستد تا با بررسی Bio و آخرین پست‌ها، فروشگاه بودن کانال را تایید کند.
+Detector (Analyzer): فیلتر اول AI برای تشخیص ماهیت کانال؛ اگر فروشگاه باشد، آن را به صف CHANNELS_QUEUE می‌فرستد.
 
-Worker: با متد blpop به صف ردیس گوش می‌دهد و به محض دریافت دیتای تایید شده، آن را در MongoDB اینسرت می‌کند.
+Processor: مغز متفکر سیستم؛ پست‌ها را از صف برداشته، جزئیات محصول (قیمت، نام و...) را استخراج و به صف PRODUCTS_QUEUE منتقل می‌کند.
+
+Worker: مصرف‌کننده نهایی؛ محصولات آماده را از صف برداشته و در MongoDB ذخیره می‌کند (با قابلیت بازیابی در صورت خطا).
+
+Session Service: مدیریت چرخش اکانت‌ها و پروکسی‌ها برای دور زدن محدودیت‌های نرخ درخواست (Rate Limit).
 
 # 📝 گزارش‌گیری
 خروجی‌ها علاوه بر دیتابیس، در فولدر doc نیز ذخیره می‌شوند:
