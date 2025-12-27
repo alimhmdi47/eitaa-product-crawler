@@ -93,7 +93,8 @@ def generate_advanced_keywords(client):
     except Exception as e:
         print(f"AI Keyword Error: {e}")
         # لیست بک‌آپ استاندارد (بدون حرف "و")
-        return ["مانتو مجلسی", "آرایشی عمده", "لوازم آشپزخانه", "گالری بدلیجات", "قاب گوشی"]
+        # return ["مانتو مجلسی", "آرایشی عمده", "لوازم آشپزخانه", "گالری بدلیجات", "قاب گوشی"]
+        raise e
     
 def extract_bulk_products(client, posts):
     """
